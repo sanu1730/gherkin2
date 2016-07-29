@@ -1,5 +1,6 @@
 package gherkin.formatter;
 
+import gherkin.CallerContext;
 import gherkin.deps.com.google.gson.Gson;
 import gherkin.deps.com.google.gson.GsonBuilder;
 import gherkin.deps.net.iharder.Base64;
@@ -26,6 +27,7 @@ public class JSONFormatter implements Reporter, Formatter {
     private List<Map> beforeHooks = new ArrayList<Map>();
 
     private enum Phase {step, match, embedding, output, result};
+    private CallerContext context = new CallerContext();
 
     /**
      * In order to handle steps being added all at once, this method determines allows methods to
@@ -71,6 +73,20 @@ public class JSONFormatter implements Reporter, Formatter {
         }
         return lastWithValue;
     }
+
+    private Map getCurrentStep() {
+        String target = Phase.result.name();
+        Map step = null;
+        List<Map> steps = getSteps();
+        for(int j = steps.size() - 1; j >= 0; j--) {
+            step = steps.get(j);
+            if(step.get(target) != null) {
+                break;
+            }
+        }
+        return step;
+    }
+
 
 
     public JSONFormatter(Appendable out) {
@@ -143,7 +159,7 @@ public class JSONFormatter implements Reporter, Formatter {
 
     @Override
     public void before(Match match, Result result) {
-    	beforeHooks.add(buildHookMap(match,result));
+    	beforeHooks.add(buildHookMap(match, result));
     }
 
     @Override
@@ -153,7 +169,7 @@ public class JSONFormatter implements Reporter, Formatter {
             hooks = new ArrayList<Map>();
             getFeatureElement().put("after", hooks);
         }
-        hooks.add(buildHookMap(match,result));
+        hooks.add(buildHookMap(match, result));
     }
 
     private Map buildHookMap(final Match match, final Result result) {
@@ -241,11 +257,31 @@ public class JSONFormatter implements Reporter, Formatter {
     }
 
     private List<Map<String, String>> getEmbeddings() {
-        List<Map<String, String>> embeddings = (List<Map<String, String>>) getCurrentStep(Phase.embedding).get("embeddings");
-        if (embeddings == null) {
-            embeddings = new ArrayList<Map<String, String>>();
-            getCurrentStep(Phase.embedding).put("embeddings", embeddings);
+        Class[] execStackClasses = context.getClassExecutionStack();
+        boolean stepEmbedding = false;
+        for(Class execStackClass : execStackClasses) {
+            if(execStackClass.getName().equals("cucumber.runtime.StepImpl")) {
+                stepEmbedding = true;
+                break;
+            }
         }
+
+        List<Map<String, String>> embeddings;
+        if(stepEmbedding) {
+            Map step = getCurrentStep();
+            embeddings = (List<Map<String, String>>) step.get("embeddings");
+            if (embeddings == null) {
+                embeddings = new ArrayList<Map<String, String>>();
+                step.put("embeddings", embeddings);
+            }
+        } else {
+           embeddings = (List<Map<String, String>>) getCurrentStep(Phase.embedding).get("embeddings");
+            if (embeddings == null) {
+                embeddings = new ArrayList<Map<String, String>>();
+                getCurrentStep(Phase.embedding).put("embeddings", embeddings);
+            }
+        }
+
         return embeddings;
     }
 

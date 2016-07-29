@@ -8,7 +8,7 @@ import java.util.List;
 public abstract class BasicStatement extends Mappable implements CommentHolder {
     private final List<Comment> comments;
     private final String keyword;
-    private final String name;
+    private String name;
     private final Integer line;
 
     public BasicStatement(List<Comment> comments, String keyword, String name, Integer line) {
@@ -43,6 +43,10 @@ public abstract class BasicStatement extends Mappable implements CommentHolder {
 
     public String getName() {
         return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     public Integer getLine() {
